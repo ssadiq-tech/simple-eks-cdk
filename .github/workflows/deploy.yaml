@@ -1,4 +1,5 @@
 name: Deploy to EKS
+
 on:
   push:
     branches:
@@ -18,31 +19,35 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4  # Updated to latest version
+      uses: actions/checkout@v4
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'  # Recommended version for CDK
+        node-version: '20'
         cache: 'npm'
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
     - name: Install Python dependencies
-      run: |
-          pip install -r requirements.txt
-          
-    - name: Install CDK and dependencies
+      run: pip install -r requirements.txt
+
+    - name: Install CDK and project dependencies
       run: |
         npm install -g aws-cdk
         npm ci
 
-    - name: Install Kubernetes tools
+    - name: Install Kubernetes CLI tools
       run: |
         # Install kubectl
         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
-        
-    - name: Install aws-iam-authenticator
-      run: |
+
+        # Install aws-iam-authenticator (optional for newer SDKs, kept for compatibility)
         curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator
         chmod +x aws-iam-authenticator
         sudo mv aws-iam-authenticator /usr/local/bin/
@@ -51,15 +56,15 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v3
       with:
         role-to-assume: arn:aws:iam::131332286832:role/githubdeployrole
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
         audience: sts.amazonaws.com
-    
+
     - name: Bootstrap CDK (if needed)
-      run: npx cdk bootstrap aws://131332286832/us-east-1
+      run: npx cdk bootstrap aws://131332286832/${{ env.AWS_REGION }}
 
     - name: Configure kubeconfig
       run: |
-        aws eks update-kubeconfig --region us-east-1 --name adot-eks-clusters
+        aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
     - name: CDK Synth
       run: npx cdk synth
@@ -72,12 +77,10 @@ jobs:
 
     - name: Apply Kubernetes manifests
       run: |
-        # Verify cluster access first
         kubectl cluster-info
-        
-        # Apply manifests with namespace specification
+
         if [ -d "manifests/" ]; then
-          kubectl apply -f manifests/ -n aws-otel-eks
+          kubectl apply -f manifests/ -n $NAMESPACE
         else
           echo "No manifests directory found"
         fi
