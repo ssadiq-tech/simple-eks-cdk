@@ -7,7 +7,6 @@ on:
 env:
   AWS_REGION: us-east-1
   CLUSTER_NAME: adot-eks-clusters
-  NAMESPACE: aws-otel-eks
 
 jobs:
   deploy:
