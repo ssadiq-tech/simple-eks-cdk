@@ -1,79 +1,37 @@
-name: Deploy to EKS
+name: Deploy CDK Stack
+
 on:
   push:
-    branches:
-      - main
-
-env:
-  AWS_REGION: us-east-1
-  CLUSTER_NAME: adot-eks-clusters
+    branches: [ "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write  # Required for OIDC authentication
-      contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4  # Updated to latest version
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'  # Recommended version for CDK
-        cache: 'npm'
-    - name: Install Python dependencies
-      run: |
-          pip install -r requirements.txt
-          
-    - name: Install CDK and dependencies
-      run: |
-        npm install -g aws-cdk
-        npm ci
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-    - name: Install Kubernetes tools
-      run: |
-        # Install kubectl
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
-        
-    - name: Install aws-iam-authenticator
-      run: |
-        curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator
-        chmod +x aws-iam-authenticator
-        sudo mv aws-iam-authenticator /usr/local/bin/
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        role-to-assume: arn:aws:iam::131332286832:role/githubdeployrole
-        aws-region: us-east-1
-        audience: sts.amazonaws.com
-    
-    - name: Bootstrap CDK (if needed)
-      run: npx cdk bootstrap aws://131332286832/us-east-1
+      - name: Install dependencies
+        run: |
+          npm install
 
-    - name: Configure kubeconfig
-      run: |
-        aws eks update-kubeconfig --region us-east-1 --name adot-eks-clusters
+      - name: Build CDK project
+        run: |
+          npm run build
 
-    - name: CDK Synth
-      run: npx cdk synth
-
-    - name: CDK Deploy
-      run: npx cdk deploy --require-approval never
-      env:
-        OIDC_PROVIDER_ARN: arn:aws:iam::131332286832:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/883752FFF3EFBDB7B44543F17F0C3358
-        KUBECTL_ROLE_ARN: arn:aws:iam::131332286832:role/eksctl-adot-eks-clusters-cluster-ServiceRole-H1pnlT7iEYi4
-
-    - name: Apply Kubernetes manifests
-      run: |
-        # Verify cluster access first
-        kubectl cluster-info
-        
-        else
-          echo "No manifests directory found"
-        fi
+      - name: Deploy CDK stack
+        run: |
+          npx cdk deploy --require-approval never
