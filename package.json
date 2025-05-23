@@ -1,0 +1,22 @@
+{
+  "name": "adot-namespace",
+  "version": "0.1.0",
+  "bin": {
+    "adot-namespace": "bin/adot-namespace.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --require-approval never"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.137.0",
+    "constructs": "^10.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "ts-node": "^10.9.1"
+  }
+}
